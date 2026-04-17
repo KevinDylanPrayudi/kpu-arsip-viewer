@@ -117,6 +117,7 @@
         // ==========================================
         // 1. SETTING: NAMA FILE PDF ANDA DI GITHUB
         // ==========================================
+        // Pastikan nama file ini sesuai dengan file yang ada di repository Anda
         const PDF_URL = './e-magazine.pdf'; 
         
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -185,7 +186,7 @@
                 pageFlipInstance = new window.St.PageFlip(bookEl, {
                     width: reqWidth,       // Lebar asli dokumen
                     height: reqHeight,     // Tinggi asli dokumen
-                    size: "fit",           // Otomatis menyesuaikan layar monitor
+                    size: "stretch",       // DIPERBAIKI: Mengubah "fit" menjadi "stretch" agar responsif tanpa error
                     minWidth: 300,
                     maxWidth: 1500,
                     minHeight: 400,
