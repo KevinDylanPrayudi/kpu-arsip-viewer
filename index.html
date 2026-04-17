@@ -16,7 +16,7 @@
     
     <style>
         body {
-            background-color: #e5e7eb;
+            background-color: #2d2d2d; /* Latar belakang gelap agar buku menonjol */
             font-family: 'Inter', sans-serif;
             overflow: hidden;
             margin: 0;
@@ -29,13 +29,15 @@
             align-items: center;
             height: calc(100vh - 70px);
             width: 100%;
-            padding: 20px;
+            padding: 40px;
         }
 
         /* Styling untuk kertas buku */
         .page {
             background-color: #ffffff;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.05); /* Bayangan halus di dalam kertas */
+            /* Efek kertas asli: bayangan tepi, bayangan lipatan tengah, dan border tipis */
+            box-shadow: inset -1px 0 5px rgba(0,0,0,0.05), inset 1px 0 5px rgba(0,0,0,0.05); 
+            border: 1px solid #e5e7eb;
             overflow: hidden;
         }
 
@@ -45,11 +47,17 @@
             object-fit: fill; 
         }
 
-        /* Loading Screen */
+        /* Bayangan jatuh untuk seluruh buku (membuatnya tampak 3D di atas meja) */
+        .stf__block {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            border-radius: 2px;
+        }
+
+        /* Loading Screen (Tema Gelap) */
         #loader {
             position: fixed;
             top: 70px; left: 0; right: 0; bottom: 0;
-            background: rgba(229, 231, 235, 0.95);
+            background: rgba(45, 45, 45, 0.95);
             z-index: 50;
             display: flex;
             justify-content: center;
@@ -58,8 +66,8 @@
         }
 
         .spinner {
-            border: 4px solid #d1d5db;
-            border-top: 4px solid #ea580c; /* Warna Orange KPU */
+            border: 4px solid #4b5563; /* Abu-abu gelap */
+            border-top: 4px solid #f97316; /* Warna Orange KPU */
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -74,27 +82,29 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- Header -->
-    <header class="bg-white shadow z-10 p-4 flex justify-between items-center h-[70px] border-b-4 border-orange-600">
+    <!-- Header (Tema Gelap ala Heyzine/FlipHTML5) -->
+    <header class="bg-[#1a1a1a] shadow-lg z-10 p-4 flex justify-between items-center h-[70px] border-b border-gray-800">
         <div class="flex items-center gap-3">
-            <h1 class="text-xl font-bold text-gray-800">Arsip Digital KPU Provinsi Sulawesi Tengah</h1>
+            <h1 class="text-lg font-bold text-gray-100 tracking-wide">Arsip Digital KPU Provinsi Sulawesi Tengah</h1>
         </div>
         
-        <div class="flex gap-2">
-            <span id="page-counter" class="text-gray-500 font-medium px-4 py-2">Loading...</span>
-            <button id="prev-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50">← Sebelumnya</button>
-            <button id="next-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50">Selanjutnya →</button>
+        <div class="flex items-center gap-4">
+            <span id="page-counter" class="text-gray-400 font-medium text-sm">Memuat...</span>
+            <div class="flex gap-2">
+                <button id="prev-btn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm">← Sebelumnya</button>
+                <button id="next-btn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm">Selanjutnya →</button>
+            </div>
         </div>
     </header>
 
     <!-- Area Buku -->
-    <main class="flex-1 relative bg-gray-200">
+    <main class="flex-1 relative bg-[#2d2d2d] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
         
         <!-- Loading State -->
         <div id="loader">
             <div class="spinner mb-4"></div>
-            <p class="text-xl font-bold text-gray-800" id="loading-text">Menyiapkan Dokumen KPU...</p>
-            <p class="text-sm text-gray-600 mt-2">Menerapkan efek kertas realistis 3D</p>
+            <p class="text-xl font-bold text-gray-100" id="loading-text">Menyiapkan Dokumen KPU...</p>
+            <p class="text-sm text-gray-400 mt-2">Menerapkan efek kertas realistis 3D</p>
         </div>
 
         <div id="book-wrapper">
@@ -107,7 +117,7 @@
         // ==========================================
         // 1. SETTING: NAMA FILE PDF ANDA DI GITHUB
         // ==========================================
-        const PDF_URL = './e-magazine.pdf'; 
+        const PDF_URL = './dokumen.pdf'; 
         
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -175,14 +185,15 @@
                 pageFlipInstance = new window.St.PageFlip(bookEl, {
                     width: reqWidth,       // Lebar asli dokumen
                     height: reqHeight,     // Tinggi asli dokumen
-                    size: "fit",           // Ajaib: otomatis menyesuaikan (zoom) layar monitor Anda!
+                    size: "fit",           // Otomatis menyesuaikan layar monitor
                     minWidth: 300,
                     maxWidth: 1500,
                     minHeight: 400,
                     maxHeight: 2000,
-                    maxShadowOpacity: 0.3, // Opasitas bayangan lipatan kertas
-                    showCover: true,       // Halaman 1 bertindak sebagai sampul depan (hanya sebelah kanan)
-                    mobileScrollSupport: false
+                    maxShadowOpacity: 0.6, // Ditingkatkan agar bayangan lipatan lebih gelap dan nyata
+                    showCover: true,       
+                    mobileScrollSupport: false,
+                    usePortrait: true      // Jika layar sempit (HP), otomatis berubah jadi mode 1 halaman
                 });
 
                 // Muat elemen-elemen HTML yang sudah kita buat tadi ke dalam buku
@@ -196,14 +207,12 @@
 
                 // Event listener ketika halaman dibalik
                 pageFlipInstance.on('flip', (e) => {
-                    // e.data berisi indeks halaman saat ini (dimulai dari 0)
                     let currentPage = e.data + 1;
                     if (currentPage === 1) {
-                        pageCounter.innerText = `Sampul Depan (${totalPages} Hlm)`;
+                        pageCounter.innerText = `Halaman 1 dari ${totalPages}`;
                     } else if (currentPage === totalPages) {
-                        pageCounter.innerText = `Sampul Belakang (${totalPages} Hlm)`;
+                        pageCounter.innerText = `Halaman ${totalPages} dari ${totalPages}`;
                     } else {
-                        // Menampilkan halaman yang terbuka (misal: 2-3)
                         pageCounter.innerText = `Halaman ${currentPage}-${currentPage+1} dari ${totalPages}`;
                     }
                 });
@@ -214,13 +223,13 @@
                 document.querySelector('.spinner').style.display = 'none';
                 
                 const errorMsg = document.createElement('p');
-                errorMsg.className = 'text-red-500 text-sm mt-4 text-center max-w-md';
+                errorMsg.className = 'text-red-400 text-sm mt-4 text-center max-w-md';
                 errorMsg.innerText = `Pastikan file "${url}" ada di repository. Detail Error: ${error.message}`;
                 loader.appendChild(errorMsg);
             }
         }
 
-        // Hubungkan Tombol Navigasi dengan fungsi bawaan StPageFlip
+        // Hubungkan Tombol Navigasi
         prevBtn.addEventListener('click', () => {
             if(pageFlipInstance) pageFlipInstance.flipPrev();
         });
