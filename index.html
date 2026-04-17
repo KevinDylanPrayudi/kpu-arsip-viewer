@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,18 +8,18 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- jQuery (Required for Turn.js) -->
+    <!-- jQuery (Dibutuhkan untuk Turn.js) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     
-    <!-- Turn.js for the flip effect -->
+    <!-- Turn.js untuk efek membalik halaman -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
     
-    <!-- PDF.js for rendering PDF files -->
+    <!-- PDF.js untuk membaca file PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     
     <style>
         body {
-            background-color: #e5e7eb; /* gray-200 */
+            background-color: #e5e7eb;
             font-family: 'Inter', sans-serif;
             overflow: hidden;
             margin: 0;
@@ -30,7 +30,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: calc(100vh - 70px); /* Adjust based on header height */
+            height: calc(100vh - 70px);
             width: 100%;
             overflow: hidden;
             perspective: 2000px;
@@ -46,13 +46,13 @@
             box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
         }
 
+        /* Menggunakan object-fit contain agar gambar selalu proporsional dan tidak gepeng */
         #flipbook canvas {
             width: 100%;
             height: 100%;
-            object-fit: fill; /* Ensures canvas completely fills the A4 page div */
+            object-fit: contain; 
         }
 
-        /* Loading overlay */
         #loader {
             position: fixed;
             top: 70px; left: 0; right: 0; bottom: 0;
@@ -66,7 +66,7 @@
 
         .spinner {
             border: 4px solid #d1d5db;
-            border-top: 4px solid #ea580c; /* Orange KPU accent */
+            border-top: 4px solid #ea580c;
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -81,7 +81,7 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- Header -->
+    <!-- Header / Navbar -->
     <header class="bg-white shadow z-10 p-4 flex justify-between items-center h-[70px] border-b-4 border-orange-600">
         <div class="flex items-center gap-3">
             <h1 class="text-xl font-bold text-gray-800">Arsip Digital KPU Provinsi Sulawesi Tengah</h1>
@@ -94,14 +94,12 @@
         </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- Area Buku -->
     <main class="flex-1 relative bg-gray-200">
-        
-        <!-- Loading State -->
         <div id="loader">
             <div class="spinner mb-4"></div>
-            <p class="text-xl font-bold text-gray-800" id="loading-text">Menyiapkan Dokumen...</p>
-            <p class="text-sm text-gray-600 mt-2">Memuat halaman dengan resolusi tinggi (A4)</p>
+            <p class="text-xl font-bold text-gray-800" id="loading-text">Membaca Ukuran Asli Dokumen...</p>
+            <p class="text-sm text-gray-600 mt-2">Memproses halaman beresolusi tinggi</p>
         </div>
 
         <div id="book-wrapper">
@@ -111,21 +109,19 @@
 
     <script>
         // ==========================================
-        // 1. SETTING: MASUKKAN NAMA FILE PDF ANDA DI SINI
+        // SETTING FILE PDF (Sesuaikan dengan nama file di Github Anda)
         // ==========================================
-        const PDF_URL = './e-magazine.pdf'; // Ganti dengan nama file PDF yang ada di repository Anda
+        const PDF_URL = './e-magazine.pdf'; 
         
-        // A4 Aspect Ratio Settings (High Resolution for sharp text)
-        // 1 : 1.414 aspect ratio
-        const A4_WIDTH = 900; 
-        const A4_HEIGHT = 1273; // 900 * 1.414
-        const BOOK_WIDTH = A4_WIDTH * 2; // Two pages side by side
-
-        // PDF.js Worker setup
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
         let flipbookInitialized = false;
         let totalPages = 0;
+        
+        // Variabel dinamis untuk menyimpan ukuran asli PDF
+        let PAGE_WIDTH = 0;
+        let PAGE_HEIGHT = 0;
+        let BOOK_WIDTH = 0;
 
         const loader = document.getElementById('loader');
         const flipbookEl = $('#flipbook');
@@ -134,15 +130,15 @@
         const loadingText = document.getElementById('loading-text');
         const pageCounter = document.getElementById('page-counter');
 
-        // Initial Load
         window.onload = function() {
             loadAndRenderPDF(PDF_URL);
         };
 
-        // Navigation Bindings
+        // Kontrol Tombol
         prevBtn.addEventListener('click', () => flipbookEl.turn('previous'));
         nextBtn.addEventListener('click', () => flipbookEl.turn('next'));
 
+        // Kontrol Keyboard
         $(window).on('keydown', function(e) {
             if (e.keyCode === 37) flipbookEl.turn('previous'); 
             if (e.keyCode === 39) flipbookEl.turn('next');     
@@ -150,42 +146,42 @@
 
         async function loadAndRenderPDF(url) {
             try {
-                // Fetch PDF from the URL
                 const loadingTask = pdfjsLib.getDocument(url);
                 const pdf = await loadingTask.promise;
                 totalPages = pdf.numPages;
                 
-                // Set initial size of the flipbook container
-                flipbookEl.css({ width: BOOK_WIDTH, height: A4_HEIGHT });
+                // 1. DETEKSI UKURAN ASLI DARI HALAMAN 1
+                const firstPage = await pdf.getPage(1);
+                // Kita gunakan scale 1.5 atau 2.0 agar resolusinya tajam saat dizoom
+                const baseViewport = firstPage.getViewport({ scale: 1.5 }); 
+                
+                // Simpan ukuran asli secara dinamis
+                PAGE_WIDTH = baseViewport.width;
+                PAGE_HEIGHT = baseViewport.height;
+                BOOK_WIDTH = PAGE_WIDTH * 2; // Karena buku terbuka menampilkan 2 halaman berdampingan
+                
+                flipbookEl.css({ width: BOOK_WIDTH, height: PAGE_HEIGHT });
                 flipbookEl.show();
 
-                // Render each page
+                // 2. RENDER SEMUA HALAMAN
                 for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-                    loadingText.innerText = `Memproses halaman ${pageNum} dari ${totalPages}...`;
+                    loadingText.innerText = `Merender halaman ${pageNum} dari ${totalPages}...`;
                     
                     const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 1.5 });
                     
-                    // Calculate scale to force A4 width
-                    const unscaledViewport = page.getViewport({ scale: 1.0 });
-                    const scale = A4_WIDTH / unscaledViewport.width;
-                    const viewport = page.getViewport({ scale: scale });
-                    
-                    // Create Canvas
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    // Set canvas resolution to strictly A4 dimensions
-                    canvas.width = A4_WIDTH;
-                    canvas.height = A4_HEIGHT;
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
 
-                    // Render PDF page into canvas context
                     const renderContext = {
                         canvasContext: ctx,
                         viewport: viewport
                     };
                     await page.render(renderContext).promise;
 
-                    // Wrap canvas in a turn.js page div
                     const pageDiv = document.createElement('div');
                     pageDiv.className = 'page';
                     pageDiv.appendChild(canvas);
@@ -193,12 +189,12 @@
                     flipbookEl.append(pageDiv);
                 }
 
-                // Initialize Turn.js Book
+                // 3. JALANKAN EFEK FLIPBOOK
                 loadingText.innerText = "Menyelesaikan buku...";
                 setTimeout(() => {
                     flipbookEl.turn({
                         width: BOOK_WIDTH,
-                        height: A4_HEIGHT,
+                        height: PAGE_HEIGHT,
                         autoCenter: true,
                         duration: 800,
                         gradients: true,
@@ -218,42 +214,37 @@
 
             } catch (error) {
                 console.error("Error rendering PDF: ", error);
-                loadingText.innerText = "Error memuat dokumen!";
+                loadingText.innerText = "Gagal memuat dokumen!";
                 document.querySelector('.spinner').style.display = 'none';
                 
-                // Detailed error for debugging
                 const errorMsg = document.createElement('p');
                 errorMsg.className = 'text-red-500 text-sm mt-4 text-center max-w-md';
-                errorMsg.innerText = `Pastikan file "${url}" ada di dalam repository yang sama. Detail Error: ${error.message}`;
+                errorMsg.innerText = `Pastikan file "${url}" ada. Detail Error: ${error.message}`;
                 loader.appendChild(errorMsg);
             }
         }
 
         function updatePageCounter(currentPage) {
-            // Turn.js view returns an array of visible pages e.g. [1, 2] or [0, 1]
             let view = flipbookEl.turn('view');
             let text = "";
-            if (view[0] === 0) text = `Halaman ${view[1]} dari ${totalPages}`; // Cover page
-            else if (view[1] === 0) text = `Halaman ${view[0]} dari ${totalPages}`; // Back cover
-            else text = `Halaman ${view[0]}-${view[1]} dari ${totalPages}`; // Middle pages
+            if (view[0] === 0) text = `Halaman ${view[1]} dari ${totalPages}`; 
+            else if (view[1] === 0) text = `Halaman ${view[0]} dari ${totalPages}`; 
+            else text = `Halaman ${view[0]}-${view[1]} dari ${totalPages}`; 
             
             pageCounter.innerText = text;
         }
 
-        // Responsive Scaling to fit any monitor
+        // Fungsi agar buku menyesuaikan ukuran layar monitor (Responsive)
         function scaleBook() {
-            if (!flipbookInitialized) return;
+            if (!flipbookInitialized || BOOK_WIDTH === 0) return;
             
             const wrapper = document.getElementById('book-wrapper');
-            
-            // Calculate available space minus some padding (40px)
             const availableWidth = wrapper.clientWidth - 40;
             const availableHeight = wrapper.clientHeight - 40;
             
             const scaleWidth = availableWidth / BOOK_WIDTH;
-            const scaleHeight = availableHeight / A4_HEIGHT;
+            const scaleHeight = availableHeight / PAGE_HEIGHT;
             
-            // Choose the smallest scale to ensure the whole book fits on screen
             const scale = Math.min(scaleWidth, scaleHeight, 1); 
             
             flipbookEl.css('transform', `scale(${scale})`);
