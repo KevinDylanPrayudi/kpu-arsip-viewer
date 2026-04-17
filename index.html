@@ -1,1 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPU PDF Flipbook</title>
+    
+    <!-- Tailwind CSS for UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jQuery (Required for Turn.js) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Turn.js for the flip effect -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+    
+    <!-- PDF.js for rendering PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
 
+        #book-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: calc(100vh - 100px);
+            width: 100%;
+            overflow: hidden;
+            perspective: 1200px;
+        }
+
+        #flipbook {
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        #flipbook .page {
+            background-color: white;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* Styling the canvases inside the pages */
+        #flipbook canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Loading overlay */
+        #loader {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.9);
+            z-index: 50;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Top Navigation & Upload UI -->
+    <header class="bg-white shadow-md z-10 p-4 flex justify-between items-center h-[80px]">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800">Arsip Digital KPU</h1>
+            <p class="text-sm text-gray-500">PDF to Flipbook Viewer</p>
+        </div>
+        
+        <div class="flex gap-4 items-center">
+            <label for="pdf-upload" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Upload PDF Document
+            </label>
+            <input type="file" id="pdf-upload" accept="application/pdf" class="hidden">
+            
+            <div class="border-l pl-4 flex gap-2">
+                <button id="prev-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg disabled:opacity-50">← Prev</button>
+                <button id="next-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg disabled:opacity-50">Next →</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Loading State -->
+    <div id="loader" class="flex">
+        <div class="spinner mb-4"></div>
+        <p class="text-lg font-semibold text-gray-700" id="loading-text">Rendering PDF pages...</p>
+        <p class="text-sm text-gray-500 mt-2">This might take a moment for large files.</p>
+    </div>
+
+    <!-- Flipbook Container -->
+    <main class="flex-1 relative bg-gray-800">
+        <div id="book-wrapper">
+            <div id="empty-state" class="text-center text-gray-400">
+                <svg class="mx-auto h-16 w-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <p>Upload a PDF to view it as a book.</p>
+            </div>
+            
+            <div id="flipbook" style="display: none;"></div>
+        </div>
+    </main>
+
+    <script>
+        // Setup PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        let flipbookInitialized = false;
+
+        // UI Elements
+        const uploadInput = document.getElementById('pdf-upload');
+        const loader = document.getElementById('loader');
+        const flipbookEl = $('#flipbook');
+        const emptyState = document.getElementById('empty-state');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const loadingText = document.getElementById('loading-text');
+
+        // Event Listener for File Upload
+        uploadInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const typedarray = new Uint8Array(event.target.result);
+                    renderPDF(typedarray);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                alert('Please upload a valid PDF file.');
+            }
+        });
+
+        // Button Controls
+        prevBtn.addEventListener('click', () => flipbookEl.turn('previous'));
+        nextBtn.addEventListener('click', () => flipbookEl.turn('next'));
+
+        // Keyboard Controls
+        $(window).on('keydown', function(e) {
+            if (e.keyCode === 37) flipbookEl.turn('previous'); // Left arrow
+            if (e.keyCode === 39) flipbookEl.turn('next');     // Right arrow
+        });
+
+        async function renderPDF(pdfData) {
+            loader.style.display = 'flex';
+            emptyState.style.display = 'none';
+            
+            // Destroy existing flipbook if one is already loaded
+            if (flipbookInitialized) {
+                flipbookEl.turn('destroy');
+                flipbookEl.empty();
+                flipbookEl.removeAttr('style');
+            }
+
+            try {
+                // Load the PDF
+                const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+                const numPages = pdf.numPages;
+                
+                // Get page 1 to determine the aspect ratio and size
+                const firstPage = await pdf.getPage(1);
+                const viewport = firstPage.getViewport({ scale: 1.5 }); // Scale determines quality
+                
+                // Calculate dimensions
+                const pageWidth = viewport.width;
+                const pageHeight = viewport.height;
+                const bookWidth = pageWidth * 2; // Two pages side-by-side
+
+                // Set initial size
+                flipbookEl.css({ width: bookWidth, height: pageHeight });
+                flipbookEl.show();
+
+                // Loop through all pages and render them onto HTML5 Canvases
+                for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                    loadingText.innerText = `Rendering page ${pageNum} of ${numPages}...`;
+                    
+                    const page = await pdf.getPage(pageNum);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    canvas.height = pageHeight;
+                    canvas.width = pageWidth;
+
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport
+                    };
+                    
+                    // Wait for the page to render
+                    await page.render(renderContext).promise;
+
+                    // Create a div container for Turn.js to use as a page
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = 'page';
+                    pageDiv.appendChild(canvas);
+                    
+                    flipbookEl.append(pageDiv);
+                }
+
+                // Initialize Turn.js
+                loadingText.innerText = "Building book...";
+                setTimeout(() => {
+                    flipbookEl.turn({
+                        width: bookWidth,
+                        height: pageHeight,
+                        autoCenter: true,
+                        duration: 1000, // Flip animation speed
+                        gradients: true, // Shadows during flip
+                        elevation: 50
+                    });
+                    
+                    flipbookInitialized = true;
+                    loader.style.display = 'none';
+                    scaleBook(); // Adjust size to fit screen
+                }, 100);
+
+            } catch (error) {
+                console.error("Error rendering PDF: ", error);
+                alert("An error occurred while loading the PDF.");
+                loader.style.display = 'none';
+                emptyState.style.display = 'block';
+            }
+        }
+
+        // Make the book responsive via CSS Transform
+        function scaleBook() {
+            if (!flipbookInitialized) return;
+            
+            const wrapper = document.getElementById('book-wrapper');
+            const bookWidth = flipbookEl.width();
+            const bookHeight = flipbookEl.height();
+            
+            // Calculate scale based on container size, leaving 40px padding
+            const scaleWidth = (wrapper.clientWidth - 40) / bookWidth;
+            const scaleHeight = (wrapper.clientHeight - 40) / bookHeight;
+            const scale = Math.min(scaleWidth, scaleHeight, 1); // Don't scale larger than 1
+            
+            flipbookEl.css('transform', `scale(${scale})`);
+        }
+
+        // Recalculate scale on window resize
+        $(window).resize(scaleBook);
+
+    </script>
+</body>
+</html>
