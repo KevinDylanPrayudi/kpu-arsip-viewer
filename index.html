@@ -29,6 +29,7 @@
             align-items: center;
             height: calc(100vh - 70px);
             width: 100%;
+            overflow: hidden; /* Mencegah munculnya scrollbar saat buku di-zoom otomatis */
         }
 
         #book {
@@ -45,7 +46,6 @@
         .page canvas {
             width: 100%;
             height: 100%;
-            /* KUNCI ANTI-TERPOTONG: Memastikan seluruh isi PDF muat di dalam elemen */
             object-fit: contain; 
         }
 
@@ -139,7 +139,6 @@
                 const pdf = await loadingTask.promise;
                 totalPages = pdf.numPages;
                 
-                // Ambil ukuran patokan dari Halaman 1
                 const firstPage = await pdf.getPage(1);
                 const baseViewport = firstPage.getViewport({ scale: 1.5 }); 
                 
@@ -150,8 +149,6 @@
                     loadingText.innerText = `Memproses halaman ${pageNum} dari ${totalPages}...`;
                     
                     const page = await pdf.getPage(pageNum);
-                    
-                    // Gunakan viewport asli halaman tersebut agar tidak meleset/terpotong
                     const viewport = page.getViewport({ scale: 1.5 });
                     
                     const canvas = document.createElement('canvas');
@@ -174,38 +171,32 @@
 
                 loadingText.innerText = "Membentuk buku 3D...";
                 
-                // Set ukuran ke FIXED agar stabil, responsivitas diatur oleh fungsi CSS dibawah
+                // KUNCI PERBAIKAN: Jika lebar layar lebih besar dari 768px (PC/Tablet),
+                // Jangan izinkan buku berubah jadi mode Portrait 1 Halaman.
+                const isMobileScreen = window.innerWidth <= 768;
+
                 pageFlipInstance = new window.St.PageFlip(bookEl, {
                     width: reqWidth,       
                     height: reqHeight,     
                     size: "fixed",         
                     showCover: true,       
-                    mobileScrollSupport: false,
-                    usePortrait: true      
+                    mobileScrollSupport: true,
+                    usePortrait: isMobileScreen // <-- Memaksa mode 2 halaman berdampingan di PC
                 });
 
                 pageFlipInstance.loadFromHTML(document.querySelectorAll('.page'));
 
                 loader.style.display = 'none';
-                pageCounter.innerText = `Halaman 1 dari ${totalPages}`;
-
-                // Panggil fungsi penyesuai ukuran layar
+                updateCounter(0);
                 scaleBook();
 
                 pageFlipInstance.on('flip', (e) => {
-                    let currentPage = e.data + 1;
-                    if (currentPage === 1) {
-                        pageCounter.innerText = `Halaman 1 dari ${totalPages}`;
-                    } else if (currentPage === totalPages) {
-                        pageCounter.innerText = `Halaman ${totalPages} dari ${totalPages}`;
-                    } else {
-                        pageCounter.innerText = `Halaman ${currentPage}-${currentPage+1} dari ${totalPages}`;
-                    }
+                    updateCounter(e.data);
                 });
                 
-                // Jika perangkat mengubah orientasi layar (seperti HP dimiringkan)
                 pageFlipInstance.on('changeOrientation', () => {
                     scaleBook();
+                    updateCounter(pageFlipInstance.getCurrentPageIndex());
                 });
 
             } catch (error) {
@@ -221,32 +212,55 @@
         }
 
         // ==============================================================
-        // FUNGSI UNTUK MENYESUAIKAN BUKU DENGAN LAYAR (ANTI-TERPOTONG)
+        // FUNGSI UNTUK MENGHITUNG TEKS HALAMAN SECARA AKURAT
+        // ==============================================================
+        function updateCounter(pageIndex) {
+            if (!pageFlipInstance) return;
+            
+            // Cek status buku saat ini (apakah 1 halaman atau 2 halaman)
+            const isPortrait = pageFlipInstance.getOrientation() === 'portrait';
+            let pageNum = pageIndex + 1;
+
+            if (isPortrait) {
+                // Tampilan 1 Halaman (HP)
+                pageCounter.innerText = `Halaman ${pageNum} dari ${totalPages}`;
+            } else {
+                // Tampilan 2 Halaman (PC)
+                if (pageNum === 1) {
+                    pageCounter.innerText = `Halaman 1 dari ${totalPages} (Sampul Depan)`;
+                } else {
+                    let endPage = pageNum + 1;
+                    if (endPage > totalPages) {
+                        pageCounter.innerText = `Halaman ${pageNum} dari ${totalPages}`;
+                    } else {
+                        pageCounter.innerText = `Halaman ${pageNum}-${endPage} dari ${totalPages}`;
+                    }
+                }
+            }
+        }
+
+        // ==============================================================
+        // FUNGSI UNTUK MENYESUAIKAN BUKU DENGAN LAYAR
         // ==============================================================
         function scaleBook() {
             if (!pageFlipInstance) return;
             
             const wrapper = document.getElementById('book-wrapper');
-            
-            // Cek apakah buku sedang menampilkan 1 halaman (Portrait/HP) atau 2 halaman (Landscape/PC)
             const isPortrait = pageFlipInstance.getOrientation() === 'portrait';
             const currentBookWidth = isPortrait ? reqWidth : reqWidth * 2;
             
-            // Sisakan ruang 40px untuk jarak batas atas/bawah/kiri/kanan
             const availableWidth = wrapper.clientWidth - 40;
             const availableHeight = wrapper.clientHeight - 40;
             
             const scaleWidth = availableWidth / currentBookWidth;
             const scaleHeight = availableHeight / reqHeight;
             
-            // Ambil skala terkecil agar buku masuk sepenuhnya ke dalam layar
             const scale = Math.min(scaleWidth, scaleHeight, 1); 
             
             bookEl.style.transform = `scale(${scale})`;
             bookEl.style.transformOrigin = 'center center';
         }
 
-        // Update skala saat ukuran browser diubah
         window.addEventListener('resize', scaleBook);
 
         // Kontrol Tombol
