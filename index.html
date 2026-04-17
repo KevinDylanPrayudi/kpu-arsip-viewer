@@ -11,12 +11,12 @@
     <!-- PDF.js untuk membaca file PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-    <!-- StPageFlip untuk efek melipat kertas yang 100% Realistis -->
+    <!-- StPageFlip untuk efek melipat kertas -->
     <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.js"></script>
     
     <style>
         body {
-            background-color: #2d2d2d; /* Latar belakang gelap agar buku menonjol */
+            background-color: #2d2d2d;
             font-family: 'Inter', sans-serif;
             overflow: hidden;
             margin: 0;
@@ -29,13 +29,14 @@
             align-items: center;
             height: calc(100vh - 70px);
             width: 100%;
-            padding: 40px;
         }
 
-        /* Styling untuk kertas buku */
+        #book {
+            transition: transform 0.3s ease; /* Transisi mulus saat layar dibesar/kecilkan */
+        }
+
         .page {
             background-color: #ffffff;
-            /* Efek kertas asli: bayangan tepi, bayangan lipatan tengah, dan border tipis */
             box-shadow: inset -1px 0 5px rgba(0,0,0,0.05), inset 1px 0 5px rgba(0,0,0,0.05); 
             border: 1px solid #e5e7eb;
             overflow: hidden;
@@ -44,16 +45,15 @@
         .page canvas {
             width: 100%;
             height: 100%;
-            object-fit: fill; 
+            /* KUNCI ANTI-TERPOTONG: Memastikan seluruh isi PDF muat di dalam elemen */
+            object-fit: contain; 
         }
 
-        /* Bayangan jatuh untuk seluruh buku (membuatnya tampak 3D di atas meja) */
         .stf__block {
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
             border-radius: 2px;
         }
 
-        /* Loading Screen (Tema Gelap) */
         #loader {
             position: fixed;
             top: 70px; left: 0; right: 0; bottom: 0;
@@ -66,8 +66,8 @@
         }
 
         .spinner {
-            border: 4px solid #4b5563; /* Abu-abu gelap */
-            border-top: 4px solid #f97316; /* Warna Orange KPU */
+            border: 4px solid #4b5563; 
+            border-top: 4px solid #f97316; 
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -82,7 +82,6 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- Header (Tema Gelap ala Heyzine/FlipHTML5) -->
     <header class="bg-[#1a1a1a] shadow-lg z-10 p-4 flex justify-between items-center h-[70px] border-b border-gray-800">
         <div class="flex items-center gap-3">
             <h1 class="text-lg font-bold text-gray-100 tracking-wide">Arsip Digital KPU Provinsi Sulawesi Tengah</h1>
@@ -97,18 +96,15 @@
         </div>
     </header>
 
-    <!-- Area Buku -->
     <main class="flex-1 relative bg-[#2d2d2d] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
         
-        <!-- Loading State -->
         <div id="loader">
             <div class="spinner mb-4"></div>
             <p class="text-xl font-bold text-gray-100" id="loading-text">Menyiapkan Dokumen KPU...</p>
-            <p class="text-sm text-gray-400 mt-2">Menerapkan efek kertas realistis 3D</p>
+            <p class="text-sm text-gray-400 mt-2">Menyesuaikan resolusi agar tidak terpotong</p>
         </div>
 
         <div id="book-wrapper">
-            <!-- Container untuk StPageFlip -->
             <div id="book"></div>
         </div>
     </main>
@@ -117,13 +113,14 @@
         // ==========================================
         // 1. SETTING: NAMA FILE PDF ANDA DI GITHUB
         // ==========================================
-        // Pastikan nama file ini sesuai dengan file yang ada di repository Anda
         const PDF_URL = './e-magazine.pdf'; 
         
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
         let pageFlipInstance = null;
         let totalPages = 0;
+        let reqWidth = 0;
+        let reqHeight = 0;
 
         const loader = document.getElementById('loader');
         const bookEl = document.getElementById('book');
@@ -138,41 +135,36 @@
 
         async function loadAndRenderPDF(url) {
             try {
-                // Tarik file PDF
                 const loadingTask = pdfjsLib.getDocument(url);
                 const pdf = await loadingTask.promise;
                 totalPages = pdf.numPages;
                 
-                // Ambil ukuran dari Halaman 1 sebagai patokan resolusi
+                // Ambil ukuran patokan dari Halaman 1
                 const firstPage = await pdf.getPage(1);
-                const baseViewport = firstPage.getViewport({ scale: 1.5 }); // Resolusi tinggi
+                const baseViewport = firstPage.getViewport({ scale: 1.5 }); 
                 
-                const reqWidth = baseViewport.width;
-                const reqHeight = baseViewport.height;
+                reqWidth = baseViewport.width;
+                reqHeight = baseViewport.height;
 
-                // Loop untuk merender setiap halaman PDF ke dalam Kanvas
                 for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
                     loadingText.innerText = `Memproses halaman ${pageNum} dari ${totalPages}...`;
                     
                     const page = await pdf.getPage(pageNum);
                     
-                    // Skalakan halaman agar ukurannya seragam dengan Halaman 1
-                    const unscaledViewport = page.getViewport({ scale: 1.0 });
-                    const scale = reqWidth / unscaledViewport.width;
-                    const viewport = page.getViewport({ scale: scale });
+                    // Gunakan viewport asli halaman tersebut agar tidak meleset/terpotong
+                    const viewport = page.getViewport({ scale: 1.5 });
                     
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    canvas.width = reqWidth;
-                    canvas.height = reqHeight;
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
 
                     await page.render({
                         canvasContext: ctx,
                         viewport: viewport
                     }).promise;
 
-                    // Buat elemen "kertas" (div) dan masukkan kanvas ke dalamnya
                     const pageDiv = document.createElement('div');
                     pageDiv.className = 'page';
                     pageDiv.appendChild(canvas);
@@ -180,33 +172,26 @@
                     bookEl.appendChild(pageDiv);
                 }
 
-                // Inisialisasi StPageFlip (Efek Lipat Realistis)
                 loadingText.innerText = "Membentuk buku 3D...";
                 
+                // Set ukuran ke FIXED agar stabil, responsivitas diatur oleh fungsi CSS dibawah
                 pageFlipInstance = new window.St.PageFlip(bookEl, {
-                    width: reqWidth,       // Lebar asli dokumen
-                    height: reqHeight,     // Tinggi asli dokumen
-                    size: "stretch",       // DIPERBAIKI: Mengubah "fit" menjadi "stretch" agar responsif tanpa error
-                    minWidth: 300,
-                    maxWidth: 1500,
-                    minHeight: 400,
-                    maxHeight: 2000,
-                    maxShadowOpacity: 0.6, // Ditingkatkan agar bayangan lipatan lebih gelap dan nyata
+                    width: reqWidth,       
+                    height: reqHeight,     
+                    size: "fixed",         
                     showCover: true,       
                     mobileScrollSupport: false,
-                    usePortrait: true      // Jika layar sempit (HP), otomatis berubah jadi mode 1 halaman
+                    usePortrait: true      
                 });
 
-                // Muat elemen-elemen HTML yang sudah kita buat tadi ke dalam buku
                 pageFlipInstance.loadFromHTML(document.querySelectorAll('.page'));
 
-                // Sembunyikan loading
                 loader.style.display = 'none';
-                
-                // Atur teks awal
                 pageCounter.innerText = `Halaman 1 dari ${totalPages}`;
 
-                // Event listener ketika halaman dibalik
+                // Panggil fungsi penyesuai ukuran layar
+                scaleBook();
+
                 pageFlipInstance.on('flip', (e) => {
                     let currentPage = e.data + 1;
                     if (currentPage === 1) {
@@ -216,6 +201,11 @@
                     } else {
                         pageCounter.innerText = `Halaman ${currentPage}-${currentPage+1} dari ${totalPages}`;
                     }
+                });
+                
+                // Jika perangkat mengubah orientasi layar (seperti HP dimiringkan)
+                pageFlipInstance.on('changeOrientation', () => {
+                    scaleBook();
                 });
 
             } catch (error) {
@@ -230,7 +220,36 @@
             }
         }
 
-        // Hubungkan Tombol Navigasi
+        // ==============================================================
+        // FUNGSI UNTUK MENYESUAIKAN BUKU DENGAN LAYAR (ANTI-TERPOTONG)
+        // ==============================================================
+        function scaleBook() {
+            if (!pageFlipInstance) return;
+            
+            const wrapper = document.getElementById('book-wrapper');
+            
+            // Cek apakah buku sedang menampilkan 1 halaman (Portrait/HP) atau 2 halaman (Landscape/PC)
+            const isPortrait = pageFlipInstance.getOrientation() === 'portrait';
+            const currentBookWidth = isPortrait ? reqWidth : reqWidth * 2;
+            
+            // Sisakan ruang 40px untuk jarak batas atas/bawah/kiri/kanan
+            const availableWidth = wrapper.clientWidth - 40;
+            const availableHeight = wrapper.clientHeight - 40;
+            
+            const scaleWidth = availableWidth / currentBookWidth;
+            const scaleHeight = availableHeight / reqHeight;
+            
+            // Ambil skala terkecil agar buku masuk sepenuhnya ke dalam layar
+            const scale = Math.min(scaleWidth, scaleHeight, 1); 
+            
+            bookEl.style.transform = `scale(${scale})`;
+            bookEl.style.transformOrigin = 'center center';
+        }
+
+        // Update skala saat ukuran browser diubah
+        window.addEventListener('resize', scaleBook);
+
+        // Kontrol Tombol
         prevBtn.addEventListener('click', () => {
             if(pageFlipInstance) pageFlipInstance.flipPrev();
         });
@@ -239,11 +258,10 @@
             if(pageFlipInstance) pageFlipInstance.flipNext();
         });
 
-        // Kontrol Keyboard (Panah Kiri & Kanan)
         document.addEventListener('keydown', (e) => {
             if (!pageFlipInstance) return;
-            if (e.keyCode === 37) pageFlipInstance.flipPrev(); // Panah Kiri
-            if (e.keyCode === 39) pageFlipInstance.flipNext(); // Panah Kanan
+            if (e.keyCode === 37) pageFlipInstance.flipPrev(); 
+            if (e.keyCode === 39) pageFlipInstance.flipNext(); 
         });
 
     </script>
