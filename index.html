@@ -16,11 +16,26 @@
     
     <style>
         body {
-            background-color: #2d2d2d;
+            /* Latar belakang terang dengan gradien halus ala meja kaca/putih */
+            background: radial-gradient(circle at 50% 50%, #ffffff 0%, #e0e0e0 100%);
             font-family: 'Inter', sans-serif;
             overflow: hidden;
             margin: 0;
             padding: 0;
+        }
+
+        /* NAVBAR / HEADER MINIMALIS */
+        header {
+            background: transparent;
+        }
+
+        .icon-btn {
+            color: #888;
+            transition: color 0.2s;
+            cursor: pointer;
+        }
+        .icon-btn:hover {
+            color: #333;
         }
 
         #book-wrapper {
@@ -29,17 +44,80 @@
             align-items: center;
             height: calc(100vh - 70px);
             width: 100%;
-            overflow: hidden; /* Mencegah munculnya scrollbar saat buku di-zoom otomatis */
+            overflow: hidden; 
         }
 
+        /* * EFEK BUKU FISIK (HARDCOVER) 
+         */
+        #book-cover {
+            position: relative;
+            background-color: #d4d4d4; /* Warna kulit sampul luar */
+            padding: 10px; /* Sampul lebih besar 10px dari kertas */
+            border-radius: 6px;
+            /* Bayangan jatuh buku ke meja */
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.4),
+                inset 0 0 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            display: flex;
+        }
+
+        /* Efek Ketebalan Tumpukan Kertas di Sisi Kiri dan Kanan */
+        #book-cover::before, #book-cover::after {
+            content: '';
+            position: absolute;
+            top: 10px; bottom: 10px;
+            width: 10px;
+            background: #fff;
+            z-index: 0;
+        }
+        #book-cover::before {
+            left: 2px;
+            /* Garis-garis tipis meniru tumpukan kertas */
+            box-shadow: inset -1px 0 0 #ddd, inset -2px 0 0 #fff, inset -3px 0 0 #ddd, inset -4px 0 0 #fff;
+            border-radius: 4px 0 0 4px;
+        }
+        #book-cover::after {
+            right: 2px;
+            /* Garis-garis tipis meniru tumpukan kertas */
+            box-shadow: inset 1px 0 0 #ddd, inset 2px 0 0 #fff, inset 3px 0 0 #ddd, inset 4px 0 0 #fff;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Bayangan Lipatan Tengah (Gutter Spine) */
+        #spine-shadow {
+            position: absolute;
+            top: 10px; bottom: 10px;
+            left: 50%;
+            width: 50px;
+            transform: translateX(-50%);
+            /* Gradien gelap di tengah, memudar ke kiri dan kanan */
+            background: linear-gradient(to right, 
+                rgba(255,255,255,0) 0%, 
+                rgba(0,0,0,0.05) 20%, 
+                rgba(0,0,0,0.4) 48%, 
+                rgba(0,0,0,0.6) 50%, 
+                rgba(0,0,0,0.4) 52%, 
+                rgba(0,0,0,0.05) 80%, 
+                rgba(255,255,255,0) 100%);
+            z-index: 10;
+            pointer-events: none; /* Klik tembus ke kertas di bawahnya */
+        }
+
+        /* Jika layar sempit (1 halaman), sembunyikan efek spine & stack kiri */
+        .portrait-mode #spine-shadow { display: none; }
+        .portrait-mode::before { display: none; }
+
+        /* Container halaman */
         #book {
-            transition: transform 0.3s ease; /* Transisi mulus saat layar dibesar/kecilkan */
+            z-index: 1;
+            background-color: #fff;
         }
 
+        /* Kertas individu */
         .page {
-            background-color: #ffffff;
-            box-shadow: inset -1px 0 5px rgba(0,0,0,0.05), inset 1px 0 5px rgba(0,0,0,0.05); 
-            border: 1px solid #e5e7eb;
+            background-color: #fdfdfd;
+            border: 1px solid #e0e0e0;
             overflow: hidden;
         }
 
@@ -49,15 +127,11 @@
             object-fit: contain; 
         }
 
-        .stf__block {
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-            border-radius: 2px;
-        }
-
+        /* Loading Screen */
         #loader {
             position: fixed;
-            top: 70px; left: 0; right: 0; bottom: 0;
-            background: rgba(45, 45, 45, 0.95);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(245, 245, 245, 0.95);
             z-index: 50;
             display: flex;
             justify-content: center;
@@ -66,8 +140,8 @@
         }
 
         .spinner {
-            border: 4px solid #4b5563; 
-            border-top: 4px solid #f97316; 
+            border: 4px solid #e5e7eb; 
+            border-top: 4px solid #888; 
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -82,30 +156,42 @@
 </head>
 <body class="flex flex-col h-screen">
 
-    <header class="bg-[#1a1a1a] shadow-lg z-10 p-4 flex justify-between items-center h-[70px] border-b border-gray-800">
+    <!-- Header Minimalis ala Gambar Referensi -->
+    <header class="w-full z-20 p-4 flex justify-between items-center h-[70px]">
         <div class="flex items-center gap-3">
-            <h1 class="text-lg font-bold text-gray-100 tracking-wide">Arsip Digital KPU Provinsi Sulawesi Tengah</h1>
+            <h1 class="text-md font-semibold text-gray-600 tracking-wide">Arsip Digital KPU Provinsi Sulawesi Tengah</h1>
         </div>
         
+        <!-- Ikon Tengah (Meniru estetika menu) -->
+        <div class="flex items-center gap-6 absolute left-1/2 transform -translate-x-1/2 hidden md:flex">
+            <svg class="w-6 h-6 icon-btn" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+            <svg class="w-5 h-5 icon-btn" fill="currentColor" viewBox="0 0 24 24"><path d="M22.675 0h-21.35C.597 0 0 .597 0 1.325v21.351C0 23.403.597 24 1.325 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116c.73 0 1.323-.597 1.323-1.324V1.325C24 .597 23.403 0 22.675 0z"/></svg>
+            <svg class="w-5 h-5 icon-btn" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </div>
+
         <div class="flex items-center gap-4">
-            <span id="page-counter" class="text-gray-400 font-medium text-sm">Memuat...</span>
+            <span id="page-counter" class="text-gray-500 font-medium text-sm">Memuat...</span>
             <div class="flex gap-2">
-                <button id="prev-btn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm">← Sebelumnya</button>
-                <button id="next-btn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm">Selanjutnya →</button>
+                <!-- Tombol navigasi dibuat putih bersih -->
+                <button id="prev-btn" class="bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm">←</button>
+                <button id="next-btn" class="bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm">→</button>
             </div>
         </div>
     </header>
 
-    <main class="flex-1 relative bg-[#2d2d2d] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+    <main class="flex-1 relative">
         
         <div id="loader">
             <div class="spinner mb-4"></div>
-            <p class="text-xl font-bold text-gray-100" id="loading-text">Menyiapkan Dokumen KPU...</p>
-            <p class="text-sm text-gray-400 mt-2">Menyesuaikan resolusi agar tidak terpotong</p>
+            <p class="text-xl font-bold text-gray-600" id="loading-text">Menyiapkan Dokumen KPU...</p>
         </div>
 
         <div id="book-wrapper">
-            <div id="book"></div>
+            <!-- Penambahan elemen "Cover" dan "Spine Shadow" untuk efek nyata -->
+            <div id="book-cover">
+                <div id="spine-shadow"></div>
+                <div id="book"></div>
+            </div>
         </div>
     </main>
 
@@ -123,6 +209,7 @@
         let reqHeight = 0;
 
         const loader = document.getElementById('loader');
+        const bookCover = document.getElementById('book-cover');
         const bookEl = document.getElementById('book');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
@@ -140,7 +227,8 @@
                 totalPages = pdf.numPages;
                 
                 const firstPage = await pdf.getPage(1);
-                const baseViewport = firstPage.getViewport({ scale: 1.5 }); 
+                // Kita kurangi sedikit skalanya agar muat dengan cover yang ditambahkan
+                const baseViewport = firstPage.getViewport({ scale: 1.4 }); 
                 
                 reqWidth = baseViewport.width;
                 reqHeight = baseViewport.height;
@@ -149,7 +237,7 @@
                     loadingText.innerText = `Memproses halaman ${pageNum} dari ${totalPages}...`;
                     
                     const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 1.5 });
+                    const viewport = page.getViewport({ scale: 1.4 });
                     
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
@@ -171,8 +259,6 @@
 
                 loadingText.innerText = "Membentuk buku 3D...";
                 
-                // KUNCI PERBAIKAN: Jika lebar layar lebih besar dari 768px (PC/Tablet),
-                // Jangan izinkan buku berubah jadi mode Portrait 1 Halaman.
                 const isMobileScreen = window.innerWidth <= 768;
 
                 pageFlipInstance = new window.St.PageFlip(bookEl, {
@@ -181,7 +267,7 @@
                     size: "fixed",         
                     showCover: true,       
                     mobileScrollSupport: true,
-                    usePortrait: isMobileScreen // <-- Memaksa mode 2 halaman berdampingan di PC
+                    usePortrait: isMobileScreen 
                 });
 
                 pageFlipInstance.loadFromHTML(document.querySelectorAll('.page'));
@@ -205,7 +291,7 @@
                 document.querySelector('.spinner').style.display = 'none';
                 
                 const errorMsg = document.createElement('p');
-                errorMsg.className = 'text-red-400 text-sm mt-4 text-center max-w-md';
+                errorMsg.className = 'text-red-500 text-sm mt-4 text-center max-w-md';
                 errorMsg.innerText = `Pastikan file "${url}" ada di repository. Detail Error: ${error.message}`;
                 loader.appendChild(errorMsg);
             }
@@ -217,48 +303,56 @@
         function updateCounter(pageIndex) {
             if (!pageFlipInstance) return;
             
-            // Cek status buku saat ini (apakah 1 halaman atau 2 halaman)
             const isPortrait = pageFlipInstance.getOrientation() === 'portrait';
             let pageNum = pageIndex + 1;
 
             if (isPortrait) {
-                // Tampilan 1 Halaman (HP)
                 pageCounter.innerText = `Halaman ${pageNum} dari ${totalPages}`;
             } else {
-                // Tampilan 2 Halaman (PC)
                 if (pageNum === 1) {
-                    pageCounter.innerText = `Halaman 1 dari ${totalPages} (Sampul Depan)`;
+                    pageCounter.innerText = `Halaman 1 dari ${totalPages}`;
                 } else {
                     let endPage = pageNum + 1;
                     if (endPage > totalPages) {
                         pageCounter.innerText = `Halaman ${pageNum} dari ${totalPages}`;
                     } else {
-                        pageCounter.innerText = `Halaman ${pageNum}-${endPage} dari ${totalPages}`;
+                        pageCounter.innerText = `${pageNum} - ${endPage}`;
                     }
                 }
             }
         }
 
         // ==============================================================
-        // FUNGSI UNTUK MENYESUAIKAN BUKU DENGAN LAYAR
+        // FUNGSI UNTUK MENYESUAIKAN BUKU & COVER DENGAN LAYAR
         // ==============================================================
         function scaleBook() {
             if (!pageFlipInstance) return;
             
             const wrapper = document.getElementById('book-wrapper');
             const isPortrait = pageFlipInstance.getOrientation() === 'portrait';
-            const currentBookWidth = isPortrait ? reqWidth : reqWidth * 2;
+            
+            // Tambah/hapus class portrait untuk mengatur bayangan tengah
+            if(isPortrait) {
+                bookCover.classList.add('portrait-mode');
+            } else {
+                bookCover.classList.remove('portrait-mode');
+            }
+
+            // Lebar buku asli + padding cover (20px)
+            const currentBookWidth = (isPortrait ? reqWidth : reqWidth * 2) + 20;
+            const currentBookHeight = reqHeight + 20;
             
             const availableWidth = wrapper.clientWidth - 40;
             const availableHeight = wrapper.clientHeight - 40;
             
             const scaleWidth = availableWidth / currentBookWidth;
-            const scaleHeight = availableHeight / reqHeight;
+            const scaleHeight = availableHeight / currentBookHeight;
             
             const scale = Math.min(scaleWidth, scaleHeight, 1); 
             
-            bookEl.style.transform = `scale(${scale})`;
-            bookEl.style.transformOrigin = 'center center';
+            // Terapkan Zoom ke SELURUH Cover (bukan cuma kertasnya)
+            bookCover.style.transform = `scale(${scale})`;
+            bookCover.style.transformOrigin = 'center center';
         }
 
         window.addEventListener('resize', scaleBook);
